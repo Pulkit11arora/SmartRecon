@@ -31,7 +31,7 @@ except ImportError:
 
 st.set_page_config(
     page_title="SmartRecon",
-    page_icon="◆",
+    page_icon="🧮",
     layout="wide",
     initial_sidebar_state="auto",
 )
@@ -47,6 +47,28 @@ st.markdown(
             padding: 0;
         }
         div[data-testid="stMetricLabel"] { opacity: 0.65; }
+        .sr-header {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            line-height: 1.15;
+        }
+        .sr-header .sr-icon {
+            font-size: 2.6rem;
+            line-height: 1.15;
+        }
+        .sr-header .sr-title {
+            font-size: 2.25rem;
+            font-weight: 700;
+            margin: 0;
+            line-height: 1.15;
+        }
+        .sr-header .sr-subtitle {
+            font-size: 0.95rem;
+            opacity: 0.65;
+            margin: 0;
+            line-height: 1.15;
+        }
     </style>
     """,
     unsafe_allow_html=True,
@@ -55,16 +77,29 @@ st.markdown(
 for key, default in {
     "audit_report_md": None,
     "dispute_email_md": None,
+    "last_ledger_file_id": None,
+    "last_amazon_file_id": None,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
 
 
 # ----------------------------------------------------------------------------
-# Header
+# Header - icon sized to sit flush against the combined height of the
+# title + subtitle lines, rather than stacking the icon above the text.
 # ----------------------------------------------------------------------------
-st.title("SmartRecon")
-st.caption("Affiliate revenue reconciliation platform.")
+st.markdown(
+    """
+    <div class="sr-header">
+        <div class="sr-icon">🧮</div>
+        <div>
+            <p class="sr-title">SmartRecon</p>
+            <p class="sr-subtitle">Affiliate revenue reconciliation platform.</p>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 st.write("")
 
 
@@ -116,6 +151,21 @@ with st.container(border=True):
 
     with upload_col2:
         amazon_file = st.file_uploader("Upload Partner Statement", type=["csv"], key="amazon_upload")
+
+# If either upload changes (new file, different file, or cleared), flush any
+# AI agent output generated against the previous run so stale results never
+# linger on screen after the underlying data has changed.
+current_ledger_id = ledger_file.file_id if ledger_file is not None else None
+current_amazon_id = amazon_file.file_id if amazon_file is not None else None
+
+if (
+    current_ledger_id != st.session_state.last_ledger_file_id
+    or current_amazon_id != st.session_state.last_amazon_file_id
+):
+    st.session_state.audit_report_md = None
+    st.session_state.dispute_email_md = None
+    st.session_state.last_ledger_file_id = current_ledger_id
+    st.session_state.last_amazon_file_id = current_amazon_id
 
 files_ready = ledger_file is not None and amazon_file is not None
 
@@ -402,6 +452,11 @@ team should take (e.g. what to dispute, what to monitor, what to fix in their tr
 Be concise, precise, and professional. Use real numbers from the data provided. Never \
 fabricate transaction IDs or details that are not present in the input JSON. If the input \
 indicates there are no anomalies, state clearly that the books are clean.
+
+Do not use mathematical formatting notation, block walls, or absolute text-wrapping syntax \
+like pipes (|) or merged text-formulas when writing dollar amounts or comparing expected vs \
+actual values. Render all financial metrics as plain text dollar amounts (e.g., $62.60 \
+expected vs. $31.30 actual) to maintain web readability.
 """
 
 
@@ -475,6 +530,10 @@ and remediation (corrected payout) where appropriate.
 - Close with a professional sign-off placeholder.
 - Do NOT invent transaction IDs, dates, or numbers that are not present in the provided data.
 - Output ONLY the email (subject line + body) in Markdown. No extra commentary before or after.
+- Do not use mathematical formatting notation, block walls, or absolute text-wrapping syntax \
+like pipes (|) or merged text-formulas when writing dollar amounts or comparing expected vs \
+actual values. Render all financial metrics as plain text dollar amounts (e.g., $62.60 \
+expected vs. $31.30 actual) to maintain web readability.
 """
 
 
